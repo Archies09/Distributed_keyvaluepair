@@ -6,6 +6,7 @@
 #include<string.h>
 #include<stdlib.h>
 #include<sys/stat.h>
+#include <netinet/tcp.h>
 #include<sys/sendfile.h>
 #include<fcntl.h>
 #include<unistd.h>
@@ -25,12 +26,13 @@ unsigned long long reqID=0;
 unsigned long long currentclientuid=1;
 unsigned long long currentslaveuid=1;
 int numberOfSlaveServers;
-#define CACHE_SIZE 4
+#define CACHE_SIZE 50
+#define HEARTBEATPORT 15200
 
 Document document;
 
-int globalclientport=6100;
-int globalslaveport=13000;
+int globalclientport=18933;
+int globalslaveport=13210;
 
 string cacheArray[CACHE_SIZE];
 
@@ -43,6 +45,9 @@ map <string,string> cacheKeyValueMapping;
 map <int,string> slaveUidToipport;
 map <int,string> clientUidToipport;
 map <int, int> uidToSocket;
+map <int,int> timedout;
+map <int,bool> isLive;
+map <string,int> ipportToUid;
 //map <int,bool> isUidUp;
 
 
@@ -234,16 +239,40 @@ connectSlave(void *node){
     server.sin_family=AF_INET;
     server.sin_port=htons(port);
     server.sin_addr.s_addr=INADDR_ANY;
+    cout<<"Stop1"<<endl;
     if(bind(sock1, (struct sockaddr*)&server, sizeof(server))<0)
         error("Error Binding");
     if(listen(sock1, 1)<0)
         error("Error Listen");
     socklen_t clientLen = sizeof(client);
     pthread_t threadid;
-    sock2=accept(sock1, (struct sockaddr*)&client,&clientLen);
+    cout<<"Stop2"<<endl;
+    sock2=accept(sock1,(struct sockaddr*)&client,&clientLen);
+    cout<<"Stop3"<<endl;
     uidToSocket[slavesock]=sock2;
     cout<<"Connection done with slave at port "<<port<<endl;
+    cout<<"Connection done with slave at port "<<slavesock<<endl;
+    while(true){
+        if(uidToSocket.find(numberOfSlaveServers)!=uidToSocket.end())
+        {
+            string message;
+            int pre=(slavesock-1)%numberOfSlaveServers;
+            int suc=(slavesock+1)%numberOfSlaveServers;
 
+            if(pre==0)
+                pre=numberOfSlaveServers;
+            if(suc==0)
+                suc=numberOfSlaveServers;
+
+
+            string precessor=slaveUidToipport[pre];
+            string successor=slaveUidToipport[suc];
+            message=precessor+"#"+successor;
+            cout<<"Mymessage"<<message<<endl;
+            send(sock2,message.c_str(),100,0);
+            break;
+        }
+    }
    /* while(true)
     {
         char queryarray[300];
@@ -420,6 +449,9 @@ connectClient(void *node){
 
         else if(strcmp(document["reqtype"].GetString(),"getreq")==0)
             {
+                int nagle=1;
+                setsockopt(sock2,IPPROTO_TCP,TCP_NODELAY,(char *) &nagle,sizeof(int));
+
                 cout<<"This is Get Request"<<endl;
 
                 string key(document["key"].GetString());
@@ -462,17 +494,52 @@ connectClient(void *node){
 
                 if (reply1.ParseInsitu(receiveResponse).HasParseError())
                 {
-                    cout<<"DocumentParsing error"<<endl;
+                    cout<<"DocumentParsing errorx"<<endl;
+
+                    int suc=(slavesock+1)%numberOfSlaveServers;
+
+                    if(suc==0)
+                        suc=numberOfSlaveServers;
+
+                    int slavesock1=uidToSocket[suc];
+                    string getmessageinjson1 = prepareSLAVEGETmessageinjson(key);
+                    send(slavesock1,getmessageinjson1.c_str(),300,0);
+
+
+                    char receiveResponse1[300];
+
+
+                    recv(slavesock1,receiveResponse1,300,0);
+
+                    cout<<receiveResponse1<<endl;
+
+                    cout<<"DOcume"<<endl;
+                    Document reply2;
+
+
+                    if (reply2.ParseInsitu(receiveResponse1).HasParseError())
+                    {
+                        cout<<"NOT FOUND"<<endl;
+                        send(sock2,"NOT FOUND",256,0);
+                    }
+                    else{
+                        cout<<"Here"<<endl;
+                        string responsevalue1(reply2["value"].GetString());
+
+                        cout<<"ResponseVlue"<<responsevalue1<<endl;
+                        send(sock2,responsevalue1.c_str(),256,0);
+                    }
+
                 }
                 else
                 {
                     cout<<"Parsing successful"<<endl;
                     cout<<"Sent to USER"<<endl;
                     string responsevalue(reply1["value"].GetString());
-                    send(sock2,responsevalue.c_str(),300,0);
+                    send(sock2,responsevalue.c_str(),256,0);
                 }
 
-                newRequest(key);
+                //newRequest(key);
                 cout<<"Cache updated successfully"<<endl;
 
 
@@ -596,6 +663,78 @@ connectClient(void *node){
 
 }
 
+
+void *
+timerbeat(void *udpport){
+    sleep(30);
+    while(true)
+    {
+        for(int i=1;i<=numberOfSlaveServers;i++)
+        {
+            if(timedout[i]==0)
+                    {isLive[i]=false;cout<<"Falsed islive of:"<<i<<endl;}
+            timedout[i]=0;
+
+        }
+        sleep(20);
+
+    }
+
+}
+
+
+
+void *
+listenbeat(void *udpport){
+    int udpporta=*((int *)udpport);
+    printf("staring udp server\n");
+
+	int server_fd, new_socket, valread;
+	struct sockaddr_in address;
+	int opt = 1;
+	socklen_t addrlen = sizeof(address);
+
+
+	if ((server_fd = socket(AF_INET, SOCK_DGRAM,0)) == 0) // localhost for TCP/IP
+	{
+		printf("could not start server");
+		exit(0);
+	}
+
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr =  htonl(INADDR_ANY);
+	address.sin_port = htons( udpporta );
+    cout<<"Binding on "<<udpporta;
+
+	if(bind(server_fd, (struct sockaddr *)&address,
+				sizeof(address))<0)
+	{
+		perror("bind failed");
+		exit(EXIT_FAILURE);
+	}
+//
+//printf("started heart beat server successfully \n");'
+
+
+    while(1)
+	{
+		char buf[1024]={0};
+
+        cout<<"before read"<<endl;
+//		printf("waiting on port %d\n", PORT);
+		//recvfrom(server_fd, buf, 1-24, 0, (struct sockaddr *)&address, &addrlen);
+        recv(server_fd, buf, 1024, 0);
+        int beatClient=atoi(buf);
+        timedout[beatClient]++;
+        cout<<"receiving"<<endl;
+		cout<<buf<<endl;
+
+
+    }
+
+
+}
+
 int
 main(int argc,char *argv[]){
     //cache starts
@@ -605,6 +744,10 @@ main(int argc,char *argv[]){
     cout<<"Enter number of slave servers:"<<endl;
     cin>>numberOfSlaveServers;
 
+    for(int i=1;i<=numberOfSlaveServers;i++)
+    {
+        timedout[i]=0;
+    }
 
     char *port;
     if(argc!=3){
@@ -627,6 +770,21 @@ if(bind(sock1, (struct sockaddr*)&server, sizeof(server))<0)
 if(listen(sock1, 1)<0)
     error("Error Listen");
 socklen_t clientLen = sizeof(client);
+pthread_t udpthread;
+int udpport=HEARTBEATPORT;
+if(pthread_create(&udpthread,NULL,listenbeat,(void*)&udpport)<0){
+    error("Thread error");
+}
+
+
+pthread_t timerthread;
+//int udpport=8453;
+if(pthread_create(&timerthread,NULL,timerbeat,(void*)&udpport)<0){
+    error("Thread error");
+}
+
+
+
 pthread_t threadid;
 while((sock2=accept(sock1, (struct sockaddr*)&client,&clientLen))>0)
 {
@@ -720,11 +878,23 @@ while((sock2=accept(sock1, (struct sockaddr*)&client,&clientLen))>0)
     string result2(result);
     cout<<result2<<endl;
     slaveUidToipport[qvalue]=result2;
+    string ackstring;
+    if(ipportToUid.find(result2)!=ipportToUid.end())
+    {
+        ackstring=prepareREGISTERACKSLAVEmessageinjson(ipportToUid[result2],globalslaveport++);
+    }
 
-    string ackstring=prepareREGISTERACKSLAVEmessageinjson(qvalue,globalslaveport++);
+    else
+    {
+        ipportToUid[result2]=qvalue;
+        ackstring=prepareREGISTERACKSLAVEmessageinjson(qvalue,globalslaveport++);
+
+    }
     cout<<ackstring<<endl;
     send(sock2,ackstring.c_str(),300,0);
 
+    isLive[qvalue]=true;
+    timedout[qvalue]=1;
 
 
 

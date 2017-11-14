@@ -148,8 +148,6 @@ int main(int argc,char *argv[]){
     if (connect(sock3,(struct sockaddr*)&server,sizeof(server)) < 0)
         error("Error connect");
 
-
-
     while(1)
     {
         cout<<"Select A Request for server:"<<endl;
