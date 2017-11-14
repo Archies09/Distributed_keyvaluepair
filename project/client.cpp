@@ -35,7 +35,7 @@ string prepareREGISTERmessageinjson(string hostid,int port)
 
 string preparePUTmessageinjson(string key,string value)
 {
-    string str=" { \"reqid\" :"+ to_string(reqID) +", \"reqtype\" : \"putreq\", \"key\" : \""+key+"\", \"value\" : \""+key+"\" } ";
+    string str=" { \"reqid\" :"+ to_string(reqID) +", \"reqtype\" : \"putreq\", \"key\" : \""+key+"\", \"value\" : \""+value+"\" } ";
     reqID++;
     return str;
 }
@@ -148,8 +148,6 @@ int main(int argc,char *argv[]){
     if (connect(sock3,(struct sockaddr*)&server,sizeof(server)) < 0)
         error("Error connect");
 
-
-
     while(1)
     {
         cout<<"Select A Request for server:"<<endl;
@@ -169,6 +167,10 @@ int main(int argc,char *argv[]){
             //jsonstringtodocument(getmessageinjson);
             send(sock3,getmessageinjson.c_str(),100,0);
             cout<<"Sent Successfully"<<endl;
+            char valuereceived[256];
+            recv(sock3,valuereceived,256,0);
+            cout<<"Value is"<<valuereceived<<endl;
+
         }
         else if(selection==2)
         {
