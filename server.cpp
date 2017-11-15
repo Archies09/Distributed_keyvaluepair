@@ -103,7 +103,7 @@ string preparePREPARESLAVEPUTmessageinjson(string key,string value,int id)//pval
 
 string preparePREPARESLAVEDELmessageinjson(string key)//pvalue=0 failed registration
 {
-    string str=" { \"reqid\" :"+ to_string(reqID) +", \"reqtype\" : \"commitdel\", \"key\" : \""+key+"\" } ";
+    string str=" { \"reqid\" :"+ to_string(reqID) +", \"reqtype\" : \"preparedel\", \"key\" : \""+key+"\" } ";
     reqID++;
     return str;
 }
@@ -424,7 +424,9 @@ connectClient(void *node){
                              getmessageinjson2 = prepareCOMMITSLAVEmessageinjson(1);
                             send(slavesocksuccessor,getmessageinjson2.c_str(),300,0);
 
+                                newRequest(key);
 
+                        send(sock2,"Put Successful",100,0);
 
                     }
                     else
@@ -435,6 +437,9 @@ connectClient(void *node){
 
                              getmessageinjson2 = prepareCOMMITSLAVEmessageinjson(0);
                             send(slavesocksuccessor,getmessageinjson2.c_str(),300,0);
+
+                        send(sock2,"Put Unsuccessful",100,0);
+
                     }
 
                 }
@@ -442,8 +447,8 @@ connectClient(void *node){
                 }
 
                 //preparePREPARESLAVEDELmessageinjson()
-
-               // cacheKeyValueMapping[key]=corrvalue;
+                //one last change
+               cacheKeyValueMapping[key]=corrvalue;
 
             }
 
@@ -528,6 +533,9 @@ connectClient(void *node){
 
                         cout<<"ResponseVlue"<<responsevalue1<<endl;
                         send(sock2,responsevalue1.c_str(),256,0);
+
+                        newRequest(key);
+
                     }
 
                 }
@@ -537,9 +545,10 @@ connectClient(void *node){
                     cout<<"Sent to USER"<<endl;
                     string responsevalue(reply1["value"].GetString());
                     send(sock2,responsevalue.c_str(),256,0);
+                    newRequest(key);
+
                 }
 
-                //newRequest(key);
                 cout<<"Cache updated successfully"<<endl;
 
 
@@ -627,8 +636,22 @@ connectClient(void *node){
 
                              getmessageinjson2 = prepareCOMMITSLAVEmessageinjson(1);
                             send(slavesocksuccessor,getmessageinjson2.c_str(),300,0);
+                            if(cacheKeyValueMapping.find(key)!=cacheKeyValueMapping.end())
+                                cacheKeyValueMapping.erase(key);
 
+                            if(cacheMap.find(key)!=cacheMap.end())
+                                cacheMap.erase(key);
+                            for(int k=0;k<CACHE_SIZE;k++)
+                            {
+                                if(cacheArray[k]==key)
+                                    {
+                                        cacheArray[k]="";
+                                        isFull++;
+                                        currentIndex=k;
+                                    }
 
+                            }
+                            send(sock2,"Deleted Successfully",100,0);
 
                     }
                     else
@@ -639,6 +662,8 @@ connectClient(void *node){
 
                              getmessageinjson2 = prepareCOMMITSLAVEmessageinjson(0);
                             send(slavesocksuccessor,getmessageinjson2.c_str(),300,0);
+
+                            send(sock2,"Delete Unsuccessful",100,0);
                     }
 
                 }
@@ -649,7 +674,6 @@ connectClient(void *node){
 
 
 
-                cacheKeyValueMapping.erase(key);
 
                 cout<<"Key Deleted Successfully"<<endl;
 

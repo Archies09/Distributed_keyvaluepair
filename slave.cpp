@@ -260,13 +260,13 @@ int main(int argc,char *argv[]){
         string slaveip(slaveIp);
         string str2(slaveip+"_"+slavePort);
         string str1(slaveip+"_"+slavePort+"_successor");
-        fp=fopen(str2.c_str(),"a");
-        fp1=fopen(str1.c_str(),"a");
+       // fp=fopen(str2.c_str(),"a");
+       // fp1=fopen(str1.c_str(),"a");
 
 
     //char buffer[200];
     //sprintf(buffer,"%s#%s#%s","0",clientIp,clientPort);
-    init(str2,str1);
+    //init(str2,str1);
     string str(slaveIp);
     string buff=prepareREGISTERmessageinjson(str,atoi(slavePort));
     cout<<buff<<endl;
@@ -491,15 +491,15 @@ int main(int argc,char *argv[]){
                                     if(successor==0)
                                     {
                                         MyKeyValueMap[key]=corrvalue;
-                                        string s1(key+"#"+corrvalue);
-                                        fprintf(fp,"%s\n",s1.c_str());
-                                        cout<<"MAIN "<<key<<" "<<corrvalue<<endl;
+                                        //string s1(key+"#"+corrvalue);
+                                        //fprintf(fp,"%s\n",s1.c_str());
+                                        //cout<<"MAIN "<<key<<" "<<corrvalue<<endl;
                                     }
                                     else{
                                         SuccessorKeyValueMap[key]=corrvalue;
-                                         string s2(key+"#"+corrvalue);
-                                        fprintf(fp1,"%s\n",s2.c_str());
-                                        cout<<"SUCCESSOR "<<key<<" "<<corrvalue<<endl;
+                                         //string s2(key+"#"+corrvalue);
+                                        //fprintf(fp1,"%s\n",s2.c_str());
+                                        //cout<<"SUCCESSOR "<<key<<" "<<corrvalue<<endl;
                                     }
 
                             }
@@ -529,24 +529,24 @@ int main(int argc,char *argv[]){
                 string key(document["key"].GetString());
                 //string corrvalue(document["value"].GetString());
 
-                        if (document.ParseInsitu(receiveResponseCommand).HasParseError())
-                        {
-                            cout<<"Parse Error"<<endl;
-                        }
-                        else
-                        {
-                            if(document["commit"].GetInt()==1)
-                            {
-                                    if(MyKeyValueMap.find(key)!=MyKeyValueMap.end())
-                                            MyKeyValueMap.erase(key);
-                                    else    SuccessorKeyValueMap.erase(key);
-                            }
-                            else
-                            {
+                if (document.ParseInsitu(receiveResponseCommand).HasParseError())
+                {
+                    cout<<"Parse Error"<<endl;
+                }
+                else
+                {
+                    if(document["commit"].GetInt()==1)
+                    {
+                            if(MyKeyValueMap.find(key)!=MyKeyValueMap.end())
+                                    MyKeyValueMap.erase(key);
+                            else    SuccessorKeyValueMap.erase(key);
+                    }
+                    else
+                    {
 
 
-                            }
-                        }
+                    }
+                }
                 /*string getmessageinjson1 = preparePREPAREACKSLAVEmessageinjson(1);
                 send(sock3,getmessageinjson1.c_str(),300,0);
 

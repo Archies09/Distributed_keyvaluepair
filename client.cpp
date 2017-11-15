@@ -186,6 +186,9 @@ int main(int argc,char *argv[]){
             //jsonstringtodocument(getmessageinjson);
             send(sock3,getmessageinjson.c_str(),100,0);
             cout<<"Sent Successfully"<<endl;
+            char msgresponse[100];
+            recv(sock3,msgresponse,100,0);
+            cout<<msgresponse<<endl;
         }
         else if(selection==3)
         {
@@ -197,6 +200,9 @@ int main(int argc,char *argv[]){
             //jsonstringtodocument(getmessageinjson);
             send(sock3,getmessageinjson.c_str(),100,0);
             cout<<"Sent Successfully"<<endl;
+            char msgresponse[100];
+            recv(sock3,msgresponse,100,0);
+            cout<<msgresponse<<endl;
         }
         else
         {
